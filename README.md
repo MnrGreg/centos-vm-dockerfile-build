@@ -1,8 +1,11 @@
 
 
 ```shell
-# Clean previous builds
+# Update Dockerfile as needed
+
+# Clean any previous builds
 rm -fr ./output && mkdir ./output
+
 # Docker Build OS Image
 docker build -t centos-vm:7 .
 docker container rm centos-vm 
@@ -13,7 +16,7 @@ docker export centos-vm -o ./output/linux.tar
 docker run -it -v `pwd`:/os:rw --cap-add SYS_ADMIN --privileged -v /dev:/dev \
   centos:7 sh -c 'yum -y install e2fsprogs gdisk && /os/scripts/create_disk_image.sh'
 
-## Convert VM to VMware VMDK OVA
+# Convert VM to VMware VMDK OVA
 mv ./output/disk.img ./output/CentOS-7-x86_64-Minimal-1908.img
 cat <<EOF > ./output/packer-manifest.json
 {
@@ -45,6 +48,5 @@ EOF
 docker run -it -v `pwd`:/os:rw  \
   centos:7 sh -c 'yum -y install qemu-img && python /os/scripts/image-build-ova.py --vmx 13 /os/output/'
 
-
-## Check VM with Qemu Raw image
+# Check VM with Qemu Raw image
 >qemu-system-x86_64 -accel hvf -drive file=./output/disk.img,index=0,media=disk,format=raw -m size=4G
