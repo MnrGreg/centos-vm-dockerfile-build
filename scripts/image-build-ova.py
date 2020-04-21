@@ -186,7 +186,7 @@ _OVF_TEMPLATE = '''<?xml version='1.0' encoding='UTF-8'?>
     <Name>${ARTIFACT_ID}</Name>
     <AnnotationSection>
       <Info>A human-readable annotation</Info>
-      <Annotation>WSI vSphere image - ${OS_NAME}</Annotation>
+      <Annotation>vSphere image - ${OS_NAME}</Annotation>
     </AnnotationSection>
     <OperatingSystemSection ovf:id="${OS_ID}" ovf:version="${OS_VERSION}" vmw:osType="${OS_TYPE}">
       <Info>The operating system installed</Info>
@@ -290,9 +290,9 @@ _OVF_TEMPLATE = '''<?xml version='1.0' encoding='UTF-8'?>
     <ProductSection>
       <Info>Information about the installed software</Info>
       <Product>${OS_NAME}</Product>
-      <Vendor>Williams-Sonoma</Vendor>
+      <Vendor>Generic</Vendor>
       <Version>7.7.1980</Version>
-      <FullVersion>WSI Image</FullVersion>
+      <FullVersion>CentOS Image</FullVersion>
       <ProductUrl>https://github.wsgc.com/TS-ComputeServices/os-image-templates</ProductUrl>
       <Property ovf:userConfigurable="false" ovf:value="${BUILD_TIMESTAMP}" ovf:type="string" ovf:key="BUILD_TIMESTAMP"></Property>
       <Property ovf:userConfigurable="false" ovf:value="${BUILD_DATE}" ovf:type="string" ovf:key="BUILD_DATE"></Property>
