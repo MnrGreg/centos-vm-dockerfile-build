@@ -1,0 +1,12 @@
+.vscode
+.DS_Store
+mnt/
+output/
+*.tar
+*.img
+*.qcow2
+*.log
+*.vmdk
+*.out
+*.ova
+*.ovf
