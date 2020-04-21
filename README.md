@@ -5,10 +5,10 @@
 
 # Clean any previous builds
 rm -fr ./output && mkdir ./output
+docker container rm centos-vm 
 
 # Docker Build OS Image
 docker build -t centos-vm:7 .
-docker container rm centos-vm 
 docker create --name=centos-vm centos-vm:7
 docker export centos-vm -o ./output/linux.tar
 
