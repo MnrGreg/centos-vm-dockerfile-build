@@ -26,7 +26,7 @@ RUN yum -y install \
 # SysPrep Image
 RUN systemctl disable firewalld && systemctl disable postfix && systemctl disable remote-fs.target
 RUN sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
-RUN echo "root:rootpassword" | chpasswd
+RUN echo "root:plschangeme" | chpasswd
 RUN yum clean all && \
     rm -rf /var/cache/yum/* /tmp/* /var/tmp/* /anaconda-post.log && \
     cat /dev/null > /etc/machine-id && \
