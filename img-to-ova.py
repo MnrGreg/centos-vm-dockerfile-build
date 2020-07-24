@@ -1,19 +1,5 @@
 #!/usr/bin/python
 
-# Copyright 2019 The Kubernetes Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 ################################################################################
 # usage: image-build-ova.py [FLAGS] ARGS
 #  This program builds an OVA file from a VMDK and manifest file generated as a
@@ -27,72 +13,41 @@ import os
 import subprocess
 from string import Template
 import tarfile
-
+import time
+import datetime
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Builds an OVA using the artifacts from a Packer build")
-    parser.add_argument('--vmx',
-                        dest='vmx_version',
-                        default='13',
-                        help='The virtual hardware version')
-    parser.add_argument(dest='build_dir',
-                        nargs='?',
-                        metavar='BUILD_DIR',
-                        default='.',
-                        help='The Packer build directory')
-    args = parser.parse_args()
+    build_name = os.environ['IMAGE_OS']
 
     # Change the working directory if one is specified.
-    os.chdir(args.build_dir)
-    print("image-build-ova: cd %s" % args.build_dir)
-    
-    # Load the packer manifest JSON
-    data = None
-    with open('packer-manifest.json', 'r') as f:
-        data = json.load(f)
-
-    # Get the first build.
-    build = data['builds'][0]
-    build_data = build['custom_data']
-    print("image-build-ova: loaded %s" % (build['name']))
-
-    # Get a list of the VMDK files from the packer manifest.
-    vmdk_files = get_vmdk_files(build['files'])
+    os.chdir("/os/" + build_name + "/output")
 
     # Create stream-optimized versions of the VMDK files.
-    stream_optimize_vmdk_files(vmdk_files)
-
-    # TODO(akutz) Support multiple VMDK files in the OVF/OVA
-    vmdk = vmdk_files[0]
+    stream_optimize_vmdk_files('disk.img')
 
     # Create the OVF file.
-    ovf = "%s.ovf" % build['name']
+    ovf = "%s.ovf" % build_name
     create_ovf(ovf, {
-        'BUILD_DATE': build_data['build_date'],
-        'BUILD_NAME': build['name'],
-        'ARTIFACT_ID': build['artifact_id'],
-        'BUILD_TIMESTAMP': build_data['build_timestamp'],
-        'OS_NAME': build_data['os_name'],
-        'OS_TYPE': build_data['os_type'],
-        'OS_ID': build_data['os_id'],
-        'OS_VERSION': build_data['os_version'],
-        'ISO_CHECKSUM': build_data['iso_checksum'],
-        'ISO_CHECKSUM_TYPE': build_data['iso_checksum_type'],
-        'ISO_URL': build_data['iso_url'],
-        'POPULATED_DISK_SIZE': vmdk['size'],
-        'STREAM_DISK_SIZE': vmdk['stream_size'],
-        'VMX_VERSION': args.vmx_version,
+        'BUILD_NAME': build_name,
+        'BUILD_DATE': str(datetime.datetime.now()),
+        'BUILD_TIMESTAMP': str(int(time.time())),
+        'OS_NAME': os.environ['OVF_NAME'],
+        'OS_TYPE': os.environ['OVF_TYPE'],
+        'OS_ID': os.environ['OVF_ID'],
+        'OS_VERSION': os.environ['OVF_VERSION'],
+        'OS_RELEASE': os.environ['IMAGE_RELEASE'],
+        'POPULATED_DISK_SIZE': os.path.getsize('disk.img'),
+        'STREAM_DISK_SIZE': os.path.getsize('disk.ova.vmdk'),
+        'VMX_VERSION': os.environ['VMX'],
     })
 
     # Create the OVA manifest.
-    ova_manifest = "%s.mf" % build['name']
-    create_ova_manifest(ova_manifest, [ovf, vmdk['stream_name']])
+    ova_manifest = "%s.mf" % build_name
+    create_ova_manifest(ova_manifest, [ovf, 'disk.ova.vmdk'])
 
     # Create the OVA.
-    ova = "%s.ova" % build['name']
-    create_ova(ova, [ovf, ova_manifest, vmdk['stream_name']])
-
+    ova = "%s.ova" % build_name
+    create_ova(ova, [ovf, ova_manifest, 'disk.ova.vmdk'])
 
 def sha256(path):
     m = hashlib.sha256()
@@ -130,42 +85,29 @@ def create_ova_manifest(path, infile_paths):
         for i in infile_paths:
             f.write('SHA256(%s)= %s\n' % (i, sha256(i)))
 
-def get_vmdk_files(inlist):
-    outlist = []
-    for f in inlist:
-        if f['name'].endswith('.img'):
-            outlist.append(f)
-    return outlist
-    
-def stream_optimize_vmdk_files(inlist):
-    for f in inlist:
-        infile = f['name']
-        outfile = infile.replace('.img', '.ova.vmdk', 1)
-        if os.path.isfile(outfile):
-            os.remove(outfile)
-        args = [
-            'qemu-img',
-            'convert',
-            '-o',
-            'compat6,subformat=streamOptimized',
-            '-f',
-            'raw',
-            '-O',
-            'vmdk',
-            infile,
-            outfile
-        ]
-        print("image-build-ova: stream optimize %s --> %s (1-2 minutes)" %
-              (infile, outfile))
-        subprocess.check_call(args)
-        f['stream_name'] = outfile
-        f['stream_size'] = os.path.getsize(outfile)
-
+def stream_optimize_vmdk_files(infile):
+    outfile = 'disk.ova.vmdk'
+    if os.path.isfile(outfile):
+        os.remove(outfile)
+    args = [
+        'qemu-img',
+        'convert',
+        '-o',
+        'compat6,subformat=streamOptimized',
+        '-f',
+        'raw',
+        '-O',
+        'vmdk',
+        infile,
+        outfile
+    ]
+    print("image-build-ova: stream optimize %s --> %s (1-2 minutes)" % (infile, outfile))
+    subprocess.check_call(args)
 
 _OVF_TEMPLATE = '''<?xml version='1.0' encoding='UTF-8'?>
 <Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:vmw="http://www.vmware.com/schema/ovf" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData">
   <References>
-    <File ovf:id="file1" ovf:href="${BUILD_NAME}.ova.vmdk" ovf:size="${STREAM_DISK_SIZE}"/>
+    <File ovf:id="file1" ovf:href="disk.ova.vmdk" ovf:size="${STREAM_DISK_SIZE}"/>
   </References>
   <DiskSection>
     <Info>List of the virtual disks</Info>
@@ -181,9 +123,9 @@ _OVF_TEMPLATE = '''<?xml version='1.0' encoding='UTF-8'?>
     <Info>Storage policy for group of disks</Info>
     <vmw:Description>The vSAN Default Storage Policy storage policy group</vmw:Description>
   </vmw:StorageGroupSection>
-  <VirtualSystem ovf:id="${ARTIFACT_ID}">
+  <VirtualSystem ovf:id="VM">
     <Info>A Virtual system</Info>
-    <Name>${ARTIFACT_ID}</Name>
+    <Name>VM</Name>
     <AnnotationSection>
       <Info>A human-readable annotation</Info>
       <Annotation>vSphere image - ${OS_NAME}</Annotation>
@@ -290,15 +232,12 @@ _OVF_TEMPLATE = '''<?xml version='1.0' encoding='UTF-8'?>
     <ProductSection>
       <Info>Information about the installed software</Info>
       <Product>${OS_NAME}</Product>
-      <Vendor>Generic</Vendor>
-      <Version>7.7.1980</Version>
-      <FullVersion>CentOS Image</FullVersion>
+      <Vendor>custom-build</Vendor>
+      <Version>${OS_RELEASE}</Version>
+      <FullVersion>custom-build</FullVersion>
       <ProductUrl>https://github.wsgc.com/TS-ComputeServices/os-image-templates</ProductUrl>
       <Property ovf:userConfigurable="false" ovf:value="${BUILD_TIMESTAMP}" ovf:type="string" ovf:key="BUILD_TIMESTAMP"></Property>
       <Property ovf:userConfigurable="false" ovf:value="${BUILD_DATE}" ovf:type="string" ovf:key="BUILD_DATE"></Property>
-      <Property ovf:userConfigurable="false" ovf:value="${ISO_URL}" ovf:type="string" ovf:key="ISO_URL"></Property>
-      <Property ovf:userConfigurable="false" ovf:value="${ISO_CHECKSUM}" ovf:type="string" ovf:key="ISO_CHECKSUM"></Property>
-      <Property ovf:userConfigurable="false" ovf:value="${ISO_CHECKSUM_TYPE}" ovf:type="string" ovf:key="ISO_CHECKSUM_TYPE"></Property>
     </ProductSection>
   </VirtualSystem>
 </Envelope>

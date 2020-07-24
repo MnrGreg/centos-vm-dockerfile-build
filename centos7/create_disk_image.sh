@@ -17,25 +17,24 @@ mount --bind /proc /os/mnt/proc  # check if reuired
 mount --bind /sys /os/mnt/sys
 mount --bind /run /os/mnt/run
 export uuid=$(blkid /dev/loop0p2 -sUUID -ovalue)
-cat << EOF | chroot /os/mnt/
+cat << 'EOF' | chroot /os/mnt/
 echo "LABEL=SLASH  /       ext4  defaults   1   1" > /etc/fstab
 grub2-install -v --no-floppy --target=i386-pc /dev/loop0
 grub2-mkconfig -o /boot/grub2/grub.cfg
 rm -f /.dockerenv
-sed -i "s/\/dev\/loop0p2/LABEL=SLASH/g" /boot/grub2/grub.cfg
+sed -i "s/\/dev\/loop0p2/LABEL=SLASH elevator=noop/g" /boot/grub2/grub.cfg
 sed -i 's/linuxefi/linux/g' /boot/grub2/grub.cfg
 sed -i 's/initrdefi/initrd/g' /boot/grub2/grub.cfg
+chmod og-rwx /boot/grub2/grub.cfg
 cat << EOT > /etc/dracut.conf
-# Add VMware drivers
 add_drivers+="vmxnet3 vmw_pvscsi vmw_vmci vmw_balloon vmwgfx mptspi mptscsih mptbase"
 hostonly="no"
 use_fstab="yes"
 add_fstab+="/etc/fstab"
 EOT
-dracut -v -f /boot/initramfs-3.10.0-1062.18.1.el7.x86_64.img 3.10.0-1062.18.1.el7.x86_64
+dracut -v -f /boot/initramfs-$(basename $(ls -dt /lib/modules/*)).img $(basename $(ls -dt /lib/modules/*))
 EOF
 umount /os/mnt/run
-umount /os/mnt/sys/fs/fuse/connections
 umount /os/mnt/sys
 umount /os/mnt/proc
 umount /os/mnt/dev/pts

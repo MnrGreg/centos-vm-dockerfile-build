@@ -1,7 +1,14 @@
-FROM centos:7.7.1908
+FROM registry.access.redhat.com/rhel7:7.8-356
+
+## Enroll to RedHat Satellite Subscription
+RUN rpm -Uvh http://XXXXXXXXX/katello-ca-consumer-latest.noarch.rpm
+RUN subscription-manager register --org="XXXXXXXX" --activationkey="XXXXXXXX"
+RUN yum -y install katello-agent
+
+## Update packages and install kernel
 RUN yum -y update
 RUN echo "exclude=iwl* alsa-* ivtv-* aic94xx-firmware*" >> /etc/yum.conf
-RUN yum -y group install "Minimal Install"
+RUN yum -y group install "Minimal Install" && yum -y install kernel
 
 ## Add filesystems packages
 RUN yum -y install \
@@ -12,25 +19,17 @@ RUN yum -y install \
 ## Add Hypervisor drivers
 RUN yum -y install open-vm-tools
 
-## Add cloud-init dependancies
+## Add cloud-init
 RUN yum -y install \
-    cloud-init \
     cloud-utils-growpart \
     gdisk \
-    python-configobj \
-    python-oauthlib \
-    python-six \
-    PyYAML \
-    python-jsonpatch \
-    python-jinja2 \
-    python-jsonschema \
-    python-requests \
-    perl
+    cloud-init
 
 # SysPrep Image
-RUN systemctl disable firewalld && systemctl disable postfix
+RUN subscription-manager unregister
+RUN systemctl disable firewalld && systemctl disable postfix && systemctl disable remote-fs.target
 RUN sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
-RUN echo "root:pleasechangeme" | chpasswd
+RUN echo "root:plschangeme" | chpasswd
 RUN yum clean all && \
     rm -rf /var/cache/yum/* /tmp/* /var/tmp/* /anaconda-post.log && \
     cat /dev/null > /etc/machine-id && \
