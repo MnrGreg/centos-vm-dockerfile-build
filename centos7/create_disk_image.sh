@@ -16,13 +16,25 @@ mount --bind /dev/pts /os/mnt/dev/pts
 mount --bind /proc /os/mnt/proc  # check if reuired
 mount --bind /sys /os/mnt/sys
 mount --bind /run /os/mnt/run
+# Set Grub2 defaults file
+cat << EOF > /os/mnt/etc/default/grub
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_CMDLINE_LINUX="console=ttysS0 console=tty1 earlyprintk=ttyS0 elevator=noop"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_DISABLE_LINUX_UUID=true
+GRUB_ENABLE_LINUX_LABEL=true
+GRUB_DEVICE=LABEL=SLASH
+EOF
 export uuid=$(blkid /dev/loop0p2 -sUUID -ovalue)
 cat << 'EOF' | chroot /os/mnt/
+rm -f /.dockerenv
 echo "LABEL=SLASH  /       ext4  defaults   1   1" > /etc/fstab
 grub2-install -v --no-floppy --target=i386-pc /dev/loop0
 grub2-mkconfig -o /boot/grub2/grub.cfg
-rm -f /.dockerenv
-sed -i "s/\/dev\/loop0p2/LABEL=SLASH elevator=noop/g" /boot/grub2/grub.cfg
 sed -i 's/linuxefi/linux/g' /boot/grub2/grub.cfg
 sed -i 's/initrdefi/initrd/g' /boot/grub2/grub.cfg
 chmod og-rwx /boot/grub2/grub.cfg
