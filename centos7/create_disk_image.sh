@@ -29,7 +29,7 @@ GRUB_DISABLE_LINUX_UUID=true
 GRUB_ENABLE_LINUX_LABEL=true
 GRUB_DEVICE=LABEL=SLASH
 EOF
-export uuid=$(blkid /dev/loop0p2 -sUUID -ovalue)
+# Chroot and create boot loader with required drivers
 cat << 'EOF' | chroot /os/mnt/
 rm -f /.dockerenv
 echo "LABEL=SLASH  /       ext4  defaults   1   1" > /etc/fstab
@@ -40,11 +40,10 @@ sed -i 's/initrdefi/initrd/g' /boot/grub2/grub.cfg
 chmod og-rwx /boot/grub2/grub.cfg
 cat << EOT > /etc/dracut.conf
 add_drivers+="vmxnet3 vmw_pvscsi vmw_vmci vmw_balloon vmwgfx mptspi mptscsih mptbase"
+filesystems+="ext4 xfs mbcache jbd2"
 hostonly="no"
-use_fstab="yes"
-add_fstab+="/etc/fstab"
 EOT
-dracut -v -f /boot/initramfs-$(basename $(ls -dt /lib/modules/*)).img $(basename $(ls -dt /lib/modules/*))
+dracut -v --fstab -f /boot/initramfs-$(basename $(ls -dt /lib/modules/*)).img $(basename $(ls -dt /lib/modules/*))
 EOF
 umount /os/mnt/run
 umount /os/mnt/sys
