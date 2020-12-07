@@ -1,3 +1,5 @@
+# Install imaging packages
+yum -y install e2fsprogs gdisk grub2
 # Create block disk
 IMG_SIZE=$(expr 2048 \* 1024 \* 1024)
 dd if=/dev/zero of=/os/output/disk.img bs=${IMG_SIZE} count=1

@@ -20,7 +20,7 @@ def main():
     build_name = os.environ['IMAGE_OS']
 
     # Change the working directory if one is specified.
-    os.chdir("/os/" + build_name + "/output")
+    os.chdir("/os/" + build_name + os.environ['OVF_VERSION'] + "/output")
 
     # Create stream-optimized versions of the VMDK files.
     stream_optimize_vmdk_files('disk.img')
